@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,36 +7,61 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AppTextField from '../ui/AppTextField';
-import { loginUser } from '../network/api';
-import { storeAuth } from '../utils/storage';
+  PermissionsAndroid,
+  ScrollView,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AppTextField from "../ui/AppTextField";
+import { loginUser } from "../network/api";
+import { storeAuth } from "../utils/storage";
+import messaging from "@react-native-firebase/messaging";
 
 export default function LoginScreen({ navigation, onLogin }: any) {
-  const [phone, setPhone] = useState('');
-  const [pass, setPass] = useState('');
+  const [phone, setPhone] = useState("");
+  const [pass, setPass] = useState("");
   const [loading, setLoading] = useState(false);
 
   // ✅ password show/hide state
   const [showPass, setShowPass] = useState(false);
-
+  const [fcmToken, setFcmToken] = useState(null); // store token in state
   const [errors, setErrors] = useState<{ phone?: string; pass?: string }>({});
 
-  const cleanPhone = useMemo(() => phone.replace(/\s|-/g, '').trim(), [phone]);
+  const cleanPhone = useMemo(() => phone.replace(/\s|-/g, "").trim(), [phone]);
+
+  const requestPermissionAndroid = async () => {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+    );
+    if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+      getToken();
+    } else {
+      getToken();
+    }
+  };
+  const getToken = async () => {
+    try {
+      const token = await messaging().getToken();
+      if (token) {
+        console.log("FCM Token:", token);
+        setFcmToken(token);
+      }
+    } catch (err) {
+      console.error("Error fetching FCM token:", err);
+    }
+  };
 
   const validate = () => {
     const newErrors: { phone?: string; pass?: string } = {};
 
     const pkPhoneRegex = /^(03\d{9}|\+923\d{9})$/;
 
-    if (!cleanPhone) newErrors.phone = 'Phone number is required';
+    if (!cleanPhone) newErrors.phone = "Phone number is required";
     else if (!pkPhoneRegex.test(cleanPhone))
-      newErrors.phone = 'Enter valid phone (03xx xxxxxxx)';
+      newErrors.phone = "Enter valid phone (03xx xxxxxxx)";
 
-    if (!pass) newErrors.pass = 'Password is required';
+    if (!pass) newErrors.pass = "Password is required";
     else if (pass.length < 6)
-      newErrors.pass = 'Password must be at least 6 characters';
+      newErrors.pass = "Password must be at least 6 characters";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -50,10 +75,10 @@ export default function LoginScreen({ navigation, onLogin }: any) {
 
       const payload = { phone_number: cleanPhone, password: pass };
       const data = await loginUser(payload);
-      console.log(data.result, 'hhhhhhhhhhh');
+      console.log(data.result, "hhhhhhhhhhh");
 
-      if (data?.result !== 'success') {
-        Alert.alert('Login failed', data?.message || 'Invalid credentials');
+      if (data?.result !== "success") {
+        Alert.alert("Login failed", data?.message || "Invalid credentials");
         return;
       }
 
@@ -61,7 +86,7 @@ export default function LoginScreen({ navigation, onLogin }: any) {
       const user = data?.user || data?.data || data?.result;
 
       if (!token) {
-        Alert.alert('Error', 'Token not found in API response');
+        Alert.alert("Error", "Token not found in API response");
         return;
       }
 
@@ -72,8 +97,8 @@ export default function LoginScreen({ navigation, onLogin }: any) {
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         error?.message ||
-        'Something went wrong';
-      Alert.alert('Error', msg);
+        "Something went wrong";
+      Alert.alert("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -81,82 +106,91 @@ export default function LoginScreen({ navigation, onLogin }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <View style={styles.logoWrap}>
-          <Image
-            source={require('../assets/images/daira_logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-        <Text style={styles.title}>Login</Text>
-        <Text style={styles.sub}>Welcome back! Please login to continue.</Text>
-
-        <AppTextField
-          label="Phone Number"
-          placeholder="03xx xxxxxxx"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={t => {
-            setPhone(t);
-            if (errors.phone) setErrors(p => ({ ...p, phone: undefined }));
-          }}
-          icon={require('../assets/images/mobile.png')}
-          error={errors.phone}
-          autoCorrect={false}
-        />
-
-        <AppTextField
-          label="Password"
-          placeholder="Enter password"
-          value={pass}
-          onChangeText={t => {
-            setPass(t);
-            if (errors.pass) setErrors(p => ({ ...p, pass: undefined }));
-          }}
-          icon={require('../assets/images/padlock.png')}
-          error={errors.pass}
-          autoCorrect={false}
-          secureTextEntry={!showPass} // ✅ toggle works now
-          rightIcon={
-            showPass
-              ? require('../assets/images/show.png') // ✅ add this icon
-              : require('../assets/images/hide.png') // ✅ add this icon
-          }
-          onRightIconPress={() => setShowPass(s => !s)} // ✅ toggle handler
-        />
-
-        <TouchableOpacity
-          style={[styles.btn, loading ? { opacity: 0.7 } : null]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.btnTxt}>Login</Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Signup')}
-          style={{ marginTop: 14 }}
-          disabled={loading}
-        >
-          <Text style={styles.link}>
-            Don’t have an account? <Text style={styles.linkBold}>Sign up</Text>
+      <ScrollView
+        contentContainerStyle={{}}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.container}>
+          <View style={styles.logoWrap}>
+            <Image
+              source={require("../assets/images/daira_logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.title}>Login</Text>
+          <Text style={styles.sub}>
+            Welcome back! Please login to continue.
           </Text>
-        </TouchableOpacity>
-      </View>
+
+          <AppTextField
+            label="Phone Number"
+            placeholder="03xx xxxxxxx"
+            keyboardType="phone-pad"
+            value={phone}
+            onChangeText={(t) => {
+              setPhone(t);
+              if (errors.phone) setErrors((p) => ({ ...p, phone: undefined }));
+            }}
+            icon={require("../assets/images/mobile.png")}
+            error={errors.phone}
+            autoCorrect={false}
+          />
+
+          <AppTextField
+            label="Password"
+            placeholder="Enter password"
+            value={pass}
+            onChangeText={(t) => {
+              setPass(t);
+              if (errors.pass) setErrors((p) => ({ ...p, pass: undefined }));
+            }}
+            icon={require("../assets/images/padlock.png")}
+            error={errors.pass}
+            autoCorrect={false}
+            secureTextEntry={!showPass} // ✅ toggle works now
+            rightIcon={
+              showPass
+                ? require("../assets/images/show.png") // ✅ add this icon
+                : require("../assets/images/hide.png") // ✅ add this icon
+            }
+            onRightIconPress={() => setShowPass((s) => !s)} // ✅ toggle handler
+          />
+
+          <TouchableOpacity
+            style={[styles.btn, loading ? { opacity: 0.7 } : null]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.btnTxt}>Login</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Signup")}
+            style={{ marginTop: 14 }}
+            disabled={loading}
+          >
+            <Text style={styles.link}>
+              Don’t have an account?{" "}
+              <Text style={styles.linkBold}>Sign up</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: "#FFFFFF" },
   container: { flex: 1, paddingHorizontal: 20, paddingTop: 26 },
   logoWrap: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
     marginTop: 20,
   },
@@ -166,29 +200,29 @@ const styles = StyleSheet.create({
     height: 140,
   },
 
-  title: { fontSize: 26, fontFamily: 'Poppins-Bold', color: '#111827' },
+  title: { fontSize: 26, fontFamily: "Poppins-Bold", color: "#111827" },
   sub: {
     marginTop: 6,
     marginBottom: 22,
-    color: '#6B7280',
+    color: "#6B7280",
     fontSize: 14,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: "Poppins-Medium",
     lineHeight: 20,
   },
   btn: {
     marginTop: 30,
     height: 50,
     borderRadius: 12,
-    backgroundColor: '#1E63D6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#1E63D6",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  btnTxt: { color: '#FFFFFF', fontFamily: 'Poppins-SemiBold', fontSize: 15 },
+  btnTxt: { color: "#FFFFFF", fontFamily: "Poppins-SemiBold", fontSize: 15 },
   link: {
-    textAlign: 'center',
-    color: '#6B7280',
+    textAlign: "center",
+    color: "#6B7280",
     fontSize: 13,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
   },
-  linkBold: { color: '#1E63D6', fontFamily: 'Poppins-SemiBold' },
+  linkBold: { color: "#1E63D6", fontFamily: "Poppins-SemiBold" },
 });
