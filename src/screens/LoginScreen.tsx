@@ -170,7 +170,7 @@ export default function LoginScreen({ navigation, onLogin }: any) {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => navigation.navigate("Signup")}
             style={{ marginTop: 14 }}
             disabled={loading}
@@ -179,7 +179,7 @@ export default function LoginScreen({ navigation, onLogin }: any) {
               Don’t have an account?{" "}
               <Text style={styles.linkBold}>Sign up</Text>
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
       </ScrollView>
     </SafeAreaView>
