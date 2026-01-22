@@ -132,11 +132,8 @@ export default function HomeScreen({ onLogout, navigation }: any) {
         getDashboardStats(prevDateParam),
       ]);
 
-      console.log(currRes, prevRes, "9999999999hhhhhhhhh");
       setCurrentStats(mapStats(currRes));
       setPreviousStats(mapStats(prevRes));
-
-      console.log(currentStats, previousStats, "mmmmmmmuuuiuiuiu");
     } catch (e) {
       Alert.alert("Error", e?.message || "Failed to load dashboard stats");
     } finally {
@@ -212,7 +209,7 @@ export default function HomeScreen({ onLogout, navigation }: any) {
           />
         </TouchableOpacity>
 
-        <Text style={styles.gm}>Good Morning</Text>
+        {/* <Text style={styles.gm}>Good Morning</Text> */}
         <Text style={styles.name}>{userName}</Text>
       </ImageBackground>
 
