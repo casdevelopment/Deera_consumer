@@ -20,3 +20,5 @@ ios/build/
 .DS_Store
 *.keystore
 *.jks
+temp_auto_push.bat
+temp_interactive_push.bat
