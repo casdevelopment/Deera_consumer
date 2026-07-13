@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -29,11 +30,15 @@ const MONTHS = [
   'December',
 ];
 
-type MilkItem = {
+type HistoryItem = {
   date?: string;
   display_date?: string;
+  product?: string;
   quantity?: number;
+  unit_price?: number;
+  delivery_per_unit?: number;
   total_amount?: number;
+  is_paid?: boolean;
   payment_status?: string;
 };
 
@@ -48,10 +53,12 @@ export default function MilkScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [monthTitle, setMonthTitle] = useState('');
   const [summary, setSummary] = useState({
-    total_milk_sold: 0,
+    total_product_quantity_sold: 0,
     grand_total: 0,
+    paid_amount: 0,
+    unpaid_amount: 0,
   });
-  const [history, setHistory] = useState<MilkItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const month = selectedDate.getMonth() + 1;
   const year = selectedDate.getFullYear();
@@ -63,7 +70,7 @@ export default function MilkScreen({ navigation }: any) {
   const buildDateParam = (dateObj: Date) => {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-    return `${y}-${m}`; // ✅ YYYY-MM
+    return `${y}-${m}`;
   };
 
   const fetchMilk = async () => {
@@ -74,7 +81,7 @@ export default function MilkScreen({ navigation }: any) {
       const res = await getMilkCollection(dateParam);
 
       if (res?.result !== 'success') {
-        Alert.alert('Error', res?.message || 'Failed to fetch milk collection');
+        Alert.alert('Error', res?.message || 'Failed to fetch collections');
         return;
       }
 
@@ -82,8 +89,12 @@ export default function MilkScreen({ navigation }: any) {
       setMonthTitle(data?.month || `${MONTHS[month - 1]} ${year}`);
 
       setSummary({
-        total_milk_sold: Number(data?.summary?.total_milk_sold ?? 0),
+        total_product_quantity_sold: Number(
+          data?.summary?.total_product_quantity_sold ?? 0,
+        ),
         grand_total: Number(data?.summary?.grand_total ?? 0),
+        paid_amount: Number(data?.summary?.paid_amount ?? 0),
+        unpaid_amount: Number(data?.summary?.unpaid_amount ?? 0),
       });
 
       setHistory(Array.isArray(data?.history) ? data.history : []);
@@ -99,10 +110,12 @@ export default function MilkScreen({ navigation }: any) {
     }
   };
 
-  useEffect(() => {
-    fetchMilk();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, year]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchMilk();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [month, year]),
+  );
 
   const onMonthYearChange = (event: any, newDate?: Date) => {
     setShowPicker(false);
@@ -111,29 +124,66 @@ export default function MilkScreen({ navigation }: any) {
     }
   };
 
-  const renderItem = ({ item }: { item: MilkItem }) => {
+  const renderItem = ({ item }: { item: HistoryItem }) => {
     const qty = Number(item.quantity ?? 0);
+    const unitPrice = Number(item.unit_price ?? 0);
+    const totalAmount = Number(item.total_amount ?? 0);
     const dateText = item.display_date || item.date || '';
-    const status = (item.payment_status ?? '').toString();
+    const productName = item.product || 'Product';
+    const status = item.payment_status ?? '';
+    const isPaid = item.is_paid ?? false;
 
     return (
       <View style={styles.itemCard}>
+        {/* Icon */}
         <View style={styles.iconCircle}>
-          <Image source={require('../assets/images/Milk.png')} />
+          <Text style={styles.productEmoji}>📦</Text>
         </View>
 
+        {/* Main info */}
         <View style={{ flex: 1 }}>
-          <Text style={styles.itemTitle}>{dateText}</Text>
-          <Text style={styles.itemSub}>{status}</Text>
+          <Text style={styles.itemTitle}>{productName}</Text>
+          <Text style={styles.itemDate}>{dateText}</Text>
+
+          <View style={styles.itemRow}>
+            <Text style={styles.itemDetailLabel}>Qty:</Text>
+            <Text style={styles.itemDetailValue}>{qty}</Text>
+
+            <Text style={[styles.itemDetailLabel, { marginLeft: 12 }]}>
+              Unit Price:
+            </Text>
+            <Text style={styles.itemDetailValue}>Rs. {unitPrice}</Text>
+          </View>
         </View>
 
-        <Text style={styles.itemKg}>{qty} KG</Text>
+        {/* Right side */}
+        <View style={styles.itemRight}>
+          <Text style={styles.itemAmount}>
+            Rs. {totalAmount.toLocaleString()}
+          </Text>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: isPaid ? '#E8F6EC' : '#FFF3E0' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                { color: isPaid ? '#2E7D32' : '#E65100' },
+              ]}
+            >
+              {status}
+            </Text>
+          </View>
+        </View>
       </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => navigation?.goBack?.()}
@@ -142,12 +192,12 @@ export default function MilkScreen({ navigation }: any) {
           <Image source={require('../assets/images/back-button.png')} />
         </TouchableOpacity>
 
-        <Text style={styles.title}>Milk Collection</Text>
+        <Text style={styles.title}>Collections</Text>
         <View style={{ width: 34 }} />
       </View>
 
       <View style={styles.wrap}>
-        {/* ✅ Month Button like HomeScreen */}
+        {/* Month Button */}
         <View style={styles.monthRow}>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -161,19 +211,28 @@ export default function MilkScreen({ navigation }: any) {
           <Text style={styles.monthTitle}>{monthTitle}</Text>
         </View>
 
-        {/* ✅ Summary Card */}
+        {/* Summary Card */}
         <View style={styles.totalCard}>
           {loading ? (
             <ActivityIndicator />
           ) : (
             <>
               <View>
-                <Text style={styles.smallBlue}>Total Milk Sold</Text>
-                <Text style={styles.bigBlue}>{summary.total_milk_sold} KG</Text>
+                <Text style={styles.smallBlue}>Total Qty Sold</Text>
+                <Text style={styles.bigBlue}>
+                  {summary.total_product_quantity_sold}
+                </Text>
+              </View>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.smallOrange}>Unpaid</Text>
+                <Text style={styles.bigOrange}>
+                  Rs. {summary.unpaid_amount.toLocaleString()}
+                </Text>
               </View>
 
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.smallGrey}>Total Amount</Text>
+                <Text style={styles.smallGrey}>Grand Total</Text>
                 <Text style={styles.bigDark}>
                   Rs. {summary.grand_total.toLocaleString()}
                 </Text>
@@ -207,7 +266,7 @@ export default function MilkScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* ✅ Picker */}
+      {/* Picker */}
       {showPicker && (
         <MonthPicker
           onChange={onMonthYearChange}
@@ -285,18 +344,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  smallBlue: { color: '#0052CC', fontFamily: 'Poppins-Medium', fontSize: 14 },
+  smallBlue: { color: '#0052CC', fontFamily: 'Poppins-Medium', fontSize: 12 },
   bigBlue: {
     color: '#1E63D6',
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 28,
+    fontSize: 24,
     marginTop: 4,
   },
-  smallGrey: { color: '#7F7F7F', fontFamily: 'Poppins-Regular', fontSize: 14 },
+
+  smallOrange: {
+    color: '#E65100',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+  },
+  bigOrange: {
+    color: '#E65100',
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    marginTop: 4,
+  },
+
+  smallGrey: { color: '#7F7F7F', fontFamily: 'Poppins-Regular', fontSize: 12 },
   bigDark: {
     color: '#111827',
     fontFamily: 'Poppins-Medium',
-    fontSize: 22,
+    fontSize: 18,
     marginTop: 4,
   },
 
@@ -307,6 +379,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
+  // ── Item Card ──────────────────────────────────────
   itemCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -317,6 +390,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EEF0F5',
   },
+
   iconCircle: {
     width: 43,
     height: 43,
@@ -326,16 +400,63 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+
   itemTitle: {
     fontFamily: 'Poppins-SemiBold',
     color: '#2C3E50',
-    fontSize: 16,
+    fontSize: 15,
   },
-  itemSub: {
+
+  itemDate: {
     fontFamily: 'Poppins-Regular',
-    marginTop: 2,
     color: '#9AA3AF',
-    fontSize: 14,
+    fontSize: 12,
+    marginTop: 1,
   },
-  itemKg: { fontFamily: 'Poppins-SemiBold', color: '#111827', fontSize: 16 },
+
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+
+  itemDetailLabel: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: '#9AA3AF',
+  },
+
+  itemDetailValue: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    color: '#111827',
+    marginLeft: 4,
+  },
+
+  itemRight: {
+    alignItems: 'flex-end',
+    marginLeft: 8,
+  },
+
+  itemAmount: {
+    fontFamily: 'Poppins-SemiBold',
+    color: '#111827',
+    fontSize: 15,
+    marginBottom: 6,
+  },
+
+  statusBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+
+  statusText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 11,
+  },
+  productEmoji: {
+    fontSize: 22,
+  },
 });

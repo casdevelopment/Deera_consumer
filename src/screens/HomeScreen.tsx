@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Platform,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -36,38 +36,41 @@ const MONTHS = [
   "December",
 ];
 
+type Product = {
+  name: string;
+  quantity: number;
+  unit: string;
+};
+
+type DashboardData = {
+  total_products: number;
+  total_rs: number;
+  products: Product[];
+};
+
 export default function HomeScreen({ onLogout, navigation }: any) {
-  // ✅ default current month/year
   const now = new Date();
 
-  // We store selected date as Date (picker needs Date)
   const [selectedDate, setSelectedDate] = useState<Date>(
     new Date(now.getFullYear(), now.getMonth(), 1)
   );
 
   const [showPicker, setShowPicker] = useState(false);
-  const [userName, setUserName] = useState(""); // default empty
+  const [userName, setUserName] = useState("");
 
   const [loadingStats, setLoadingStats] = useState(false);
-  const [currentStats, setCurrentStats] = useState({
+  const [currentStats, setCurrentStats] = useState<DashboardData>({
     total_products: 0,
     total_rs: 0,
+    products: [],
   });
-  const [previousStats, setPreviousStats] = useState({
+  const [previousStats, setPreviousStats] = useState<DashboardData>({
     total_products: 0,
     total_rs: 0,
-  });
-  const [stats, setStats] = useState<{
-    total_products: number;
-    total_rs: number;
-  }>({
-    total_products: 10,
-    total_rs: 10,
+    products: [],
   });
 
-  console;
-
-  const month = selectedDate.getMonth() + 1; // 1..12
+  const month = selectedDate.getMonth() + 1;
   const year = selectedDate.getFullYear();
 
   const monthLabel = useMemo(() => {
@@ -78,37 +81,29 @@ export default function HomeScreen({ onLogout, navigation }: any) {
     await logout();
     onLogout?.();
   };
-  // const buildDateParam = (dateObj: Date) => {
-  //   const y = dateObj.getFullYear();
-  //   const m = String(dateObj.getMonth() + 1).padStart(2, "0");
-  //   return `${y}-${m}`; // ✅ "YYYY-MM"
-  // };
-  // 2) Helpers
+
   const buildDateParam = (dateObj: any) => {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`; // "YYYY-MM"
+    return `${y}-${m}`;
   };
 
-  const mapStats = (data: any) => {
+  const mapStats = (data: any): DashboardData => {
     const payload = data?.data ?? data;
-
     return {
-      total_products: Number(payload?.total_milk_sold ?? 0),
+      total_products: Number(payload?.products?.length ?? 0),
       total_rs: Number(payload?.grand_total ?? 0),
+      products: Array.isArray(payload?.products) ? payload.products : [],
     };
   };
-  // ✅ Load user from AsyncStorage
-  useEffect(() => {
+
+  // Load user from AsyncStorage
+  React.useEffect(() => {
     const loadUser = async () => {
       const u = await getUser();
-
-      // your API might return username, name, full_name etc
       const name = u?.username || "";
-
       setUserName(name);
     };
-
     loadUser();
   }, []);
 
@@ -116,10 +111,8 @@ export default function HomeScreen({ onLogout, navigation }: any) {
     try {
       setLoadingStats(true);
 
-      // current month
       const currentDateParam = buildDateParam(selectedDate);
 
-      // previous month
       const prevDateObj = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth() - 1,
@@ -134,7 +127,7 @@ export default function HomeScreen({ onLogout, navigation }: any) {
 
       setCurrentStats(mapStats(currRes));
       setPreviousStats(mapStats(prevRes));
-    } catch (e) {
+    } catch (e: any) {
       Alert.alert("Error", e?.message || "Failed to load dashboard stats");
     } finally {
       setLoadingStats(false);
@@ -147,42 +140,8 @@ export default function HomeScreen({ onLogout, navigation }: any) {
     }, [selectedDate])
   );
 
-  // ✅ fetch stats whenever month/year changes
-  // useEffect(() => {
-  //   const fetchStats = async () => {
-  //     try {
-  //       setLoadingStats(true);
-
-  //       // ✅ Call API
-  //       const dateParam = buildDateParam(selectedDate);
-  //       const data = await getDashboardStats(dateParam);
-
-  //       // ✅ Map response keys based on your backend response
-  //       // If your API returns: { data: { total_products, total_rs } }
-  //       const payload = data?.data ?? data;
-  //       console.log(payload);
-
-  //       setStats({
-  //         total_products: Number(
-  //           payload?.total_milk_sold ?? payload?.total_milk_sold ?? 0
-  //         ),
-  //         total_rs: Number(payload?.grand_total ?? payload?.grand_total ?? 0),
-  //       });
-  //     } catch (e: any) {
-  //       Alert.alert("Error", e?.message || "Failed to load dashboard stats");
-  //     } finally {
-  //       setLoadingStats(false);
-  //     }
-  //   };
-
-  //   fetchStats();
-  // }, [month, year]);
-
   const onMonthYearChange = (event: any, newDate?: Date) => {
-    // Android: close picker after selection
-    // iOS: picker stays until dismissed (we close on selection too)
     setShowPicker(false);
-
     if (newDate) {
       setSelectedDate(new Date(newDate.getFullYear(), newDate.getMonth(), 1));
     }
@@ -190,18 +149,18 @@ export default function HomeScreen({ onLogout, navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* ✅ Header */}
+      {/* Header */}
       <ImageBackground
         source={require("../assets/images/home-page-bannar.png")}
         resizeMode="stretch"
         style={styles.headerBg}
       >
-        {/* ✅ Logout */}
+        {/* Logout */}
         <TouchableOpacity
           onPress={handleLogout}
           style={styles.logoutBtn}
           activeOpacity={0.85}
-          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }} // <--- Add this
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
         >
           <Image
             style={{ height: 25, width: 25 }}
@@ -209,11 +168,11 @@ export default function HomeScreen({ onLogout, navigation }: any) {
           />
         </TouchableOpacity>
 
-        {/* <Text style={styles.gm}>Good Morning</Text> */}
         <Text style={styles.name}>{userName}</Text>
       </ImageBackground>
 
       <View style={styles.body}>
+        {/* Summary Card */}
         <ShadowCard style={{ paddingHorizontal: 14, paddingVertical: 30 }}>
           <View style={styles.summaryTop}>
             <View>
@@ -221,7 +180,7 @@ export default function HomeScreen({ onLogout, navigation }: any) {
               <Text style={styles.muted}>Summary</Text>
             </View>
 
-            {/* ✅ Open Month-Year Picker */}
+            {/* Month-Year Picker */}
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.monthPill}
@@ -249,7 +208,6 @@ export default function HomeScreen({ onLogout, navigation }: any) {
                       <Text style={styles.metricValue}>
                         {currentStats?.total_products}
                       </Text>
-                      <Text style={styles.metricUnitInline}>KG</Text>
                     </View>
                     <Text style={styles.metricLabel}>Total Products</Text>
                   </>
@@ -283,7 +241,9 @@ export default function HomeScreen({ onLogout, navigation }: any) {
             </View>
           </View>
         </ShadowCard>
-        <View style={{ marginTop: 10, alignItems: "center" }}>
+
+        {/* Previous Month */}
+        {/* <View style={{ marginTop: 10, alignItems: "center" }}>
           <Text
             style={{
               fontFamily: "Poppins-Regular",
@@ -304,47 +264,77 @@ export default function HomeScreen({ onLogout, navigation }: any) {
           >
             Rs. {previousStats?.total_rs.toLocaleString()}
           </Text>
-        </View>
-
-        {/* ✅ cards */}
-        <View style={styles.grid}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Milk")}
-            activeOpacity={0.9}
-            style={{ flex: 1 }}
-          >
-            <ShadowCard style={styles.actionCard}>
-              <View style={styles.actionIconBox}>
-                <Image source={require("../assets/images/Milk.png")} />
-              </View>
-              <Text style={styles.actionText}>Milk Collection</Text>
-            </ShadowCard>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Payment")}
-            activeOpacity={0.9}
-            style={{ flex: 1 }}
-          >
-            <ShadowCard style={styles.actionCard}>
-              <View
-                style={[styles.actionIconBox, { backgroundColor: "#E8F6EC" }]}
-              >
-                <Image source={require("../assets/images/payment.png")} />
-              </View>
-              <Text style={styles.actionText}>Payment History</Text>
-            </ShadowCard>
-          </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
 
-      {/* ✅ Month-Year Picker (package) */}
+      {/* Sold Productions Section - scrollable */}
+      <ScrollView
+        style={styles.soldScroll}
+        contentContainerStyle={{ paddingBottom: 30, paddingHorizontal: 16 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Sold Productions Section */}
+        <View style={styles.soldSection}>
+          <Text style={styles.soldTitle}>Sold Products</Text>
+
+          {loadingStats ? (
+            <View style={{ paddingVertical: 20, alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#1E63D6" />
+            </View>
+          ) : currentStats.products.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>No products found</Text>
+            </View>
+          ) : (
+            currentStats.products.map((product, index) => (
+              <View key={index} style={styles.productCard}>
+                <View style={styles.productIconBox}>
+                  <Text style={styles.productEmoji}>📦</Text>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.productName}>{product.name}</Text>
+                  <Text style={styles.productUnit}>{product.unit}</Text>
+                </View>
+
+                <View style={styles.productQtyBox}>
+                  <Text style={styles.productQty}>{product.quantity}</Text>
+                  <Text style={styles.productQtyLabel}>{product.unit}</Text>
+                </View>
+              </View>
+            ))
+          )}
+
+          {/* Footer row: totals */}
+          {!loadingStats && currentStats.products.length > 0 && (
+            <View style={styles.productFooter}>
+              <View style={styles.footerItem}>
+                <Text style={styles.footerLabel}>Total Products</Text>
+                <Text style={styles.footerValue}>
+                  {currentStats.total_products}
+                </Text>
+              </View>
+
+              <View style={styles.footerDivider} />
+
+              <View style={[styles.footerItem, { alignItems: "flex-end" }]}>
+                <Text style={styles.footerLabel}>Total (Rs.)</Text>
+                <Text style={[styles.footerValue, { color: "#1E63D6" }]}>
+                  Rs. {currentStats.total_rs.toLocaleString()}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Month-Year Picker */}
       {showPicker && (
         <MonthPicker
           onChange={onMonthYearChange}
           value={selectedDate}
-          minimumDate={new Date(2020, 0)} // optional
-          maximumDate={new Date(2035, 11)} // optional
+          minimumDate={new Date(2020, 0)}
+          maximumDate={new Date(2035, 11)}
           locale="en"
         />
       )}
@@ -360,8 +350,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 34,
-
-    elevation: 10, // Android
+    elevation: 10,
   },
 
   logoutBtn: {
@@ -371,8 +360,8 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: "rgba(0,0,0,0.25)",
     borderRadius: 10,
-    zIndex: 100, // <--- Add this
-    elevation: 10, // <--- Add this for Android
+    zIndex: 100,
+    elevation: 10,
   },
 
   gm: { color: "#FFFFFF", fontSize: 14, fontFamily: "Poppins-Medium" },
@@ -384,12 +373,20 @@ const styles = StyleSheet.create({
   },
 
   body: {
-    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 14,
     position: "absolute",
     width: "100%",
-    top: 180,
+    top: 100,
+  },
+
+  soldScroll: {
+    position: "absolute",
+    width: "100%",
+    top: 365,
+    bottom: 0,
+    paddingTop: 15,
+    paddingBottom: 20,
   },
 
   card: {
@@ -491,5 +488,124 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontFamily: "Poppins-SemiBold",
     fontSize: 18,
+  },
+
+  // ── Sold Productions ──────────────────────────────
+  soldSection: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+
+  soldTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 18,
+    color: "#111827",
+    marginBottom: 14,
+  },
+
+  productCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#EEF0F5",
+  },
+
+  productIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#E3F2FD",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  productEmoji: {
+    fontSize: 22,
+  },
+
+  productName: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 15,
+    color: "#111827",
+  },
+
+  productUnit: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 13,
+    color: "#9AA3AF",
+    marginTop: 2,
+  },
+
+  productQtyBox: {
+    alignItems: "flex-end",
+  },
+
+  productQty: {
+    fontFamily: "Poppins-Bold",
+    fontSize: 22,
+    color: "#1E63D6",
+  },
+
+  productQtyLabel: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 12,
+    color: "#9AA3AF",
+  },
+
+  productFooter: {
+    flexDirection: "row",
+    marginTop: 6,
+    backgroundColor: "#F2F7FF",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  footerItem: {
+    flex: 1,
+  },
+
+  footerDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: "#D0E4FF",
+    marginHorizontal: 12,
+  },
+
+  footerLabel: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 13,
+    color: "#6B7280",
+  },
+
+  footerValue: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 18,
+    color: "#111827",
+    marginTop: 2,
+  },
+
+  emptyBox: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+
+  emptyText: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 14,
+    color: "#9AA3AF",
   },
 });

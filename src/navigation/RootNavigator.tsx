@@ -56,7 +56,7 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
             );
           }
 
-          if (route.name === "Milk") {
+          if (route.name === "Collections") {
             return focused ? (
               <MilkActiveIcon width={22} height={22} />
             ) : (
@@ -81,7 +81,7 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
         {(props) => <HomeScreen {...props} onLogout={onLogout} />}
       </Tab.Screen>
 
-      <Tab.Screen name="Milk" component={MilkScreen} />
+      <Tab.Screen name="Collections" component={MilkScreen} />
       <Tab.Screen name="Payment" component={PaymentHistoryScreen} />
     </Tab.Navigator>
   );

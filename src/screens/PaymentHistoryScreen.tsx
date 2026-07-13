@@ -248,8 +248,8 @@ export default function PaymentHistoryScreen({ navigation }: any) {
     const iconBg = tone.includes("paid")
       ? "#DCFCE7"
       : tone.includes("pending")
-      ? "#FEF9C3"
-      : "#FFE4E6";
+        ? "#FEF9C3"
+        : "#FFE4E6";
 
     return (
       <TouchableOpacity
